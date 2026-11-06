@@ -1,76 +1,189 @@
 # Job Shop Manufacturing Simulation — AnyLogic
 
-A portfolio case study for a **Job Shop manufacturing simulation developed in AnyLogic**.
+A portfolio case study documenting a **Job Shop manufacturing and material-handling simulation built in AnyLogic 8.9.9**.
 
-The purpose of this repository is to document the model as an engineering and operations-analysis project rather than simply as an AnyLogic tutorial exercise.
+The repository is being developed as an engineering and operations-analysis portfolio project rather than simply as a tutorial upload.
 
-## Project objective
+## Model status
 
-The portfolio will show how the model represents production flow through a manufacturing system and how simulation can be used to study:
+The actual `Job Shop.alp` file has now been reviewed.
 
-- throughput;
-- cycle time;
-- work in process (WIP);
-- queues and waiting;
-- machine/resource utilisation;
-- material-handling performance;
-- bottlenecks;
-- capacity changes;
-- disruption and scenario performance.
+Verified model metadata:
 
-## Current portfolio status
+- **AnyLogic version:** 8.9.9
+- **Model name:** Job Shop
+- **Java package:** `job_shop`
+- **Model time unit:** minutes
+- **Modelling approach:** discrete-event process flow with Material Handling and 3D/network markup
+- **Main entity types:** `Pallet` and `Truck`
+- **Resource-unit types:** `ForkliftsTruck` and `CNC`
 
-This repository has been created as the portfolio shell.
+The repository documentation below is based on the actual model file rather than guessed architecture.
 
-**Not yet uploaded / verified**
+## Operational problem represented
 
-- the real AnyLogic `.alp` model;
-- exact model process-flow architecture;
-- final machine/resource configuration;
-- 2D/3D model screenshots;
-- measured KPI results;
-- scenario experiment outputs.
+The model links inbound delivery trucks, pallet unloading, raw-material storage, forklift handling, CNC processing and final completion.
 
-These items will be added only from the actual working model and simulation runs.
+A useful portfolio question is:
 
-## Portfolio question
+> How do inbound delivery timing, warehouse handling, forklift capacity and CNC processing interact to determine production flow, congestion, resource utilisation and throughput?
 
-A useful central question for this project is:
+## Verified model architecture
 
-> How do processing capacity, material-handling resources and demand interact to determine throughput, cycle time, queueing and congestion in a Job Shop manufacturing system?
+### Delivery-truck flow
 
-This question may be refined once the real model configuration is reviewed.
+```text
+sourceDeliveryTrucks
+        ↓
+drivingToDock
+        ↓
+unloading
+        ↓
+drivingToExit
+        ↓
+sink1
+```
 
-## Intended KPI dashboard
+The delivery-truck source is configured with:
 
-| KPI | What it measures | Intended visual |
+- interarrival time: **1 hour**;
+- first arrival: **at model start**;
+- initial location: `exitNode`;
+- speed: **40 km/h**.
+
+`drivingToDock` sends trucks to `receivingDock`.
+
+`unloading` is a manual Delay at `receivingDock`. When a truck enters unloading, it executes:
+
+```java
+sourcePallets.inject(60);
+```
+
+This creates **60 Pallet agents** for that delivery.
+
+After unloading completes, trucks move back to `exitNode` and leave through `sink1`.
+
+### Pallet / production flow
+
+```text
+sourcePallets
+      ↓
+storeRawMaterial
+      ↓
+delay
+      ↓
+seizeCNC
+      ↓
+retrieveRawMaterial
+      ↓
+processing
+      ↓
+releaseCNC
+      ↓
+sink
+```
+
+Key verified settings:
+
+- `sourcePallets` is a **manual Source** creating `Pallet` agents at `receivingDock`.
+- `storeRawMaterial` stores pallets in `warehouse_storage` using the `forklifts` ResourcePool.
+- `warehouse_storage` is a selective rack-storage area.
+- `delay` uses `triangular(15, 20, 30)` minutes.
+- `seizeCNC` seizes a unit from the `cnc` ResourcePool.
+- `retrieveRawMaterial` retrieves material using the `forklifts` ResourcePool.
+- `processing` uses a **1-minute** processing delay.
+- `releaseCNC` releases the CNC resource.
+- `sink` removes completed Pallet agents from the process.
+
+## Verified resources
+
+### Forklifts
+
+`forklifts` is a ResourcePool with:
+
+- capacity: **5**;
+- custom resource-unit type: `ForkliftsTruck`;
+- speed: **1 m/s**;
+- home node: `forkliftParkin`.
+
+The forklifts are used by both `storeRawMaterial` and `retrieveRawMaterial`.
+
+### CNC resources
+
+`cnc` is a ResourcePool using the custom resource-unit type `CNC`.
+
+Its capacity is defined by home locations:
+
+```text
+nodeCNC1
+nodeCNC2
+```
+
+The production flow seizes a CNC resource before retrieval/processing and releases it afterward.
+
+## Material-handling and spatial model
+
+Verified markup includes:
+
+- `warehouse_storage` — rack storage;
+- `receivingDock` — area node;
+- `forkliftParkin` — area node;
+- `exitNode` — truck-network point;
+- `nodeCNC1` and `nodeCNC2` — CNC locations;
+- `network` — movement network;
+- multiple 3D cameras.
+
+This makes the project suitable for both operational analysis and visual portfolio evidence.
+
+## Important interaction between the two flows
+
+The truck and pallet processes are coupled.
+
+When a delivery truck reaches `unloading`:
+
+```java
+sourcePallets.inject(60);
+```
+
+creates the pallet batch.
+
+The storage block contains this exit action:
+
+```java
+if( self.nWaitingForResource() == 0 )
+    unloading.stopDelayForAll();
+```
+
+This links completion of pallet storage with release of the manually delayed unloading truck when no pallet is still waiting for a required resource.
+
+That interaction is one of the strongest pieces of logic to explain in the portfolio.
+
+## KPIs to add next
+
+The current model file does not contain a finished KPI dashboard, so the next development stage is instrumentation.
+
+| KPI | Why it matters | Suggested visual |
 |---|---|---|
-| Throughput | Jobs/products completed | KPI / time plot |
-| Cycle time | Time from system entry to completion | Histogram + mean |
-| Work in process | Jobs currently in the system | Time plot |
-| Queue length | Congestion before workstations | Time plot / bar chart |
-| Waiting time | Non-processing delay | Histogram / summary |
-| Machine utilisation | Busy versus available capacity | Bar chart |
-| Material-handling utilisation | Use of forklifts/transport resources if present | Bar chart |
-| Storage occupancy | Use of buffers/storage if present | Time plot |
-| Idle time | Unused machine/resource capacity | Bar chart |
-| Bottleneck | Resource restricting flow | Scenario comparison |
+| Throughput | Completed pallets per run/time unit | KPI + time plot |
+| Cycle time | End-to-end pallet time | Histogram + mean |
+| WIP | Pallets currently in the production system | Time plot |
+| Forklift utilisation | Material-handling load | Bar chart |
+| CNC utilisation | Processing-resource load | Bar chart |
+| Queue/waiting before resources | Congestion and bottlenecks | Time plot |
+| Storage occupancy | Warehouse loading | Time plot |
+| Truck turnaround time | Inbound logistics performance | Histogram / KPI |
 
-## Planned experiments
+## Planned portfolio experiments
 
-The exact experiments will depend on the real model, but the initial portfolio framework is:
+1. **Baseline** — current model.
+2. **Higher delivery frequency** — reduce truck interarrival time.
+3. **Larger/smaller batch size** — vary the 60-pallet injection.
+4. **Forklift capacity** — compare fewer/more than five forklifts.
+5. **CNC capacity** — vary the number of CNC resource locations/units.
+6. **Processing-time change** — vary the 1-minute CNC processing time.
+7. **Pre-processing delay variability** — alter the triangular 15/20/30-minute delay.
 
-| Scenario | Change | Question |
-|---|---|---|
-| Baseline | Current configuration | How does the system perform now? |
-| Higher demand | Increase arrivals | Where does congestion appear? |
-| Extra processing capacity | Add/increase a machine resource | Does throughput improve? |
-| Extra material handling | Add/increase transport capacity | Is movement a bottleneck? |
-| Faster processing | Reduce processing time | Does the bottleneck move elsewhere? |
-| Resource failure | Introduce downtime where applicable | How resilient is performance? |
-| Buffer/storage change | Alter intermediate capacity | Does blocking or waiting change? |
-
-No scenario result will be claimed until it is generated from the model.
+Each experiment should compare the same KPI set and use repeatable settings.
 
 ## Repository structure
 
@@ -83,15 +196,10 @@ job-shop-manufacturing-simulation/
 │   └── README.md
 ├── results/
 │   ├── throughput/
-│   │   └── README.md
 │   ├── cycle-time/
-│   │   └── README.md
 │   ├── utilisation/
-│   │   └── README.md
 │   ├── queues/
-│   │   └── README.md
 │   └── scenarios/
-│       └── README.md
 ├── docs/
 │   ├── modelling-notes.md
 │   ├── assumptions.md
@@ -99,66 +207,19 @@ job-shop-manufacturing-simulation/
 └── LICENSE
 ```
 
-## Evidence needed to complete this portfolio
+## Current next steps
 
-The next evidence to add is:
-
-1. **Actual AnyLogic model file** — the working `.alp` project.
-2. **Model overview screenshot** — full process logic visible.
-3. **3D/animation screenshot** — full running Job Shop environment if the model has 3D.
-4. **Process-flow screenshot** — close view of the main production blocks and routing.
-5. **Resource/machine screenshot** — the important machine, processing or material-handling area.
-6. **Dashboard screenshot** — after KPIs are added.
-7. **Measured result exports** — after baseline and scenario experiments are run.
-
-## Development stages
-
-```text
-Working model
-    ↓
-Document actual architecture
-    ↓
-Instrument KPIs
-    ↓
-Build dashboard
-    ↓
-Run baseline experiment
-    ↓
-Run controlled scenarios
-    ↓
-Compare results
-    ↓
-Interpret bottlenecks and trade-offs
-    ↓
-Complete GitHub case study
-```
-
-## Tools and methods
-
-Planned documentation will cover the tools actually used in the model, potentially including:
-
-- AnyLogic 8.9.9 PLE
-- Discrete-event simulation
-- Process Modelling Library
-- Material Handling Library, if used
-- Resource pools
-- Queues and buffers
-- Java expressions/functions
-- Events and agent logic
-- 2D/3D animation
-- AnyLogic Analysis charts
-
-Only features present in the real model will be described as implemented.
+1. Upload the real `Job Shop.alp` file into `model/`.
+2. Add a full AnyLogic model screenshot.
+3. Add a 3D runtime screenshot.
+4. Add a close-up showing storage/forklift/CNC material flow.
+5. Instrument throughput, cycle time, WIP and utilisation.
+6. Run the baseline.
+7. Run controlled capacity/demand scenarios.
+8. Add result charts and interpretation.
 
 ## Attribution
 
-If the original Job Shop was developed from AnyLogic learning/tutorial material, the final case study will state this transparently and distinguish:
-
-- the original learning model;
-- modifications and debugging;
-- KPI instrumentation;
-- scenario experiments;
-- performance analysis;
-- independent extensions.
+The model originated through AnyLogic learning/tutorial work and is being developed into a portfolio case study through model understanding, debugging, documentation, KPI instrumentation, experimentation and analysis.
 
 Third-party tutorial content, software, trademarks and assets remain the property of their respective owners.
