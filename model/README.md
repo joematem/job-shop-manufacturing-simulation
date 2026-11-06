@@ -1,25 +1,59 @@
 # AnyLogic model
 
-Add the actual working Job Shop AnyLogic project to this folder.
-
-Recommended filename:
+The actual model supplied for this portfolio is:
 
 ```text
-JobShopManufacturingSimulation.alp
+Job Shop.alp
 ```
 
-## Do not add a reconstructed placeholder model
+It has been inspected and is an **AnyLogic 8.9.9** XML project.
 
-The portfolio should contain the real `.alp` model that opens and runs in AnyLogic.
+## Verified model metadata
 
-Before adding it, confirm:
+```text
+Model name: Job Shop
+Java package: job_shop
+Model time unit: Minute
+AnyLogic version: 8.9.9
+```
 
-- the model compiles;
-- the main process runs;
-- agent/product types are correct;
-- queues/resources/machines behave as expected;
-- material movement works if present;
-- temporary debugging code is removed or documented;
-- the simulation can be reproduced from the committed files.
+## Verified custom agent/resource types
 
-If external assets are required, add them with the correct relative paths.
+- `Pallet` — Material Item
+- `Truck` — Entity
+- `ForkliftsTruck` — Resource Unit
+- `CNC` — Resource Unit
+
+## Verified main blocks
+
+```text
+sourcePallets
+storeRawMaterial
+delay
+seizeCNC
+retrieveRawMaterial
+processing
+releaseCNC
+sink
+
+sourceDeliveryTrucks
+drivingToDock
+unloading
+drivingToExit
+sink1
+
+forklifts
+cnc
+```
+
+## File still needed in GitHub
+
+The real `.alp` file has been provided in the ChatGPT workspace and reviewed, but it still needs to be added to this GitHub folder as the actual project file.
+
+Upload it here as:
+
+```text
+model/Job Shop.alp
+```
+
+Do not substitute a recreated or placeholder model.
